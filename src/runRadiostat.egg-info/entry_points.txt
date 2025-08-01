@@ -1,0 +1,2 @@
+[console_scripts]
+runRadiostat = runRadiostat.__main__:main

@@ -1,0 +1,35 @@
+{
+  "intro_reflection": "",
+  "electrolyte_orders": [
+    {
+      "chemical": "",
+      "concentration": "",
+      "volume": "",
+      "samples": "",
+      "justification": ""
+    },
+    {
+      "chemical": "",
+      "concentration": "",
+      "volume": "",
+      "samples": "",
+      "justification": ""
+    },
+    {
+      "chemical": "",
+      "concentration": "",
+      "volume": "",
+      "samples": "",
+      "justification": ""
+    }
+  ],
+  "test1_graph_annotation": "",
+  "test2_graph_annotation": "",
+  "test3_graph_annotation": "",
+  "vocab_terms": "",
+  "electrolyte_insight": "",
+  "cer_argument": "",
+  "test1_calculated_ce": "",
+  "test2_calculated_ce": "",
+  "test3_calculated_ce": ""
+}
