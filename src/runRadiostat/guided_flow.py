@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.font as tkFont
 import matplotlib.pyplot as plt
 import json
 import os
@@ -15,7 +16,11 @@ class GuidedFlowApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Beaker Cell Activity")
-        self.geometry("600x400")
+        self.geometry("800x600")
+        # Set default font size globally
+        default_font = tkFont.nametofont("TkDefaultFont")
+        default_font.configure(size=16)
+        self.option_add("*Font", default_font)
 
         container = tk.Frame(self)
         container.pack(fill="both", expand=True)
@@ -23,7 +28,8 @@ class GuidedFlowApp(tk.Tk):
         self.pages = {}
         self.responses = {}
 
-        for PageClass in (IntroPage, TestPage, RunTestPage, ExplainPage, CERPage, AnalyzePage, ConclusionPage):
+        # Order: IntroPage, DemoTestPage, RunTestPage, ExplainPage, AnalyzePage, CERPage, ConclusionPage
+        for PageClass in (IntroPage, DemoTestPage, RunTestPage, ExplainPage, AnalyzePage, CERPage, ConclusionPage):
             page = PageClass(parent=container, controller=self)
             self.pages[PageClass.__name__] = page
             page.grid(row=0, column=0, sticky="nsew")
@@ -48,7 +54,7 @@ class IntroPage(Page):
 
         instructions = (
             "Over the next several steps, you'll take part in a real research simulation inspired by work "
-            "done in university battery labs. You'll explore how different electrolytes affect battery rechargeability.\n\n"
+            "done in university battery labs. You'll explore how different electrolytes affect battery rechargeability. and answer the question\n\nWhich Electrolyte Makes the Most Efficient Battery?\n\n"
             "In this activity, you will:\n"
             "- Choose electrolytes to test\n"
             "- Run a real electrochemical experiment\n"
@@ -65,50 +71,48 @@ class IntroPage(Page):
         self.response_box = tk.Text(self, height=5, width=70)
         self.response_box.pack()
 
-        next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("TestPage")])
+        next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("DemoTestPage")])
         next_btn.pack(pady=15)
 
     def save_response(self):
         response = self.response_box.get("1.0", tk.END).strip()
         self.controller.responses["intro_reflection"] = response
 
-class TestPage(Page):
+
+# --- DemoTestPage replacement for TestPage ---
+class DemoTestPage(Page):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
-        tk.Label(self, text="Electrolyte Order Form", font=("Helvetica", 16, "bold")).pack(pady=10)
+        self.controller = controller
 
-        tk.Label(self, text="Choose 3 electrolytes you'd like to test.\nFill out the form for each one below.", wraplength=550).pack(pady=(0, 15))
+        tk.Label(self, text="Teacher Demonstration", font=("Helvetica", 16, "bold")).pack(pady=10)
 
-        self.entries = []
+        instructions = (
+            "Watch carefully as your teacher runs a real electrochemical test using a beaker cell.\n"
+            "Focus on the black circular working electrode during the test. You may see something happening!\n\n"
+            "After the test runs, you’ll see two graphs and be asked to describe what you observed."
+        )
+        tk.Label(self, text=instructions, justify="left", wraplength=560).pack(pady=10)
 
-        for i in range(1, 4):
-            frame = tk.LabelFrame(self, text=f"Electrolyte {i}", padx=10, pady=5)
-            frame.pack(padx=10, pady=5, fill="x")
+        buttonInfo = (
+            "Let your teacher press this button"
+        )
 
-            row = {}
+        tk.Label(self, text=buttonInfo, justify="center", wraplength=560).pack(pady=10)
 
-            tk.Label(frame, text="Chemical Name:").grid(row=0, column=0, sticky="w")
-            row["chemical"] = tk.Entry(frame, width=30)
-            row["chemical"].grid(row=0, column=1)
+        self.run_btn = tk.Button(self, text="▶️ Run Demo Test", command=self.run_demo_test)
+        self.run_btn.pack(pady=10)
 
-            tk.Label(frame, text="Concentration (e.g. 1 M):").grid(row=1, column=0, sticky="w")
-            row["concentration"] = tk.Entry(frame, width=20)
-            row["concentration"].grid(row=1, column=1)
+        self.status_label = tk.Label(self, text="", font=("Helvetica", 12), fg="green")
+        self.status_label.pack()
 
-            tk.Label(frame, text="Volume (mL):").grid(row=2, column=0, sticky="w")
-            row["volume"] = tk.Entry(frame, width=10)
-            row["volume"].grid(row=2, column=1)
+        self.canvas1 = None
+        self.canvas2 = None
 
-            tk.Label(frame, text="Number of Samples:").grid(row=3, column=0, sticky="w")
-            row["samples"] = tk.Entry(frame, width=10)
-            row["samples"].grid(row=3, column=1)
-
-            tk.Label(frame, text="Justification:").grid(row=4, column=0, sticky="nw")
-            row["justification"] = tk.Text(frame, height=3, width=40)
-            row["justification"].grid(row=4, column=1)
-
-            self.entries.append(row)
+        tk.Label(self, text="👀 What did you observe at the working electrode?", anchor="w").pack(pady=(20, 5))
+        self.observation_box = tk.Text(self, height=5, width=70)
+        self.observation_box.pack()
 
         back_btn = tk.Button(self, text="← Back", command=lambda: controller.show_page("IntroPage"))
         back_btn.pack(pady=5)
@@ -116,18 +120,59 @@ class TestPage(Page):
         next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("RunTestPage")])
         next_btn.pack(pady=15)
 
+    def run_demo_test(self):
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        import numpy as np
+        import os
+        import glob
+        import pandas as pd
+
+        try:
+            run_beaker_test()
+            self.status_label.config(text="Demo test completed successfully!", fg="green")
+
+            files = sorted(glob.glob("output/cv_data_*.txt"), key=os.path.getmtime)
+            latest = files[-1]
+            df = pd.read_csv(latest, sep="\t")
+
+            t = df["Time (s)"]
+            v = df["Voltage (V)"]
+            c = df["Current (uA)"] / 1000  # mA
+
+            if self.canvas1:
+                self.canvas1.get_tk_widget().destroy()
+            if self.canvas2:
+                self.canvas2.get_tk_widget().destroy()
+
+            fig1, ax1 = plt.subplots(figsize=(8.5, 2.5))
+            ax1.plot(t, v)
+            ax1.set_xlabel("Time (s)")
+            ax1.set_ylabel("Voltage (V)")
+            ax1.set_title("Voltage vs Time – Demo Test")
+            ax1.grid(True)
+            fig1.tight_layout()
+            self.canvas1 = FigureCanvasTkAgg(fig1, master=self)
+            self.canvas1.draw()
+            self.canvas1.get_tk_widget().pack(pady=5)
+
+            fig2, ax2 = plt.subplots(figsize=(8.5, 2.5))
+            ax2.plot(v, c)
+            ax2.set_xlabel("Voltage (V)")
+            ax2.set_ylabel("Current (mA)")
+            ax2.set_title("Current vs Voltage – Demo Test")
+            ax2.grid(True)
+            fig2.tight_layout()
+            self.canvas2 = FigureCanvasTkAgg(fig2, master=self)
+            self.canvas2.draw()
+            self.canvas2.get_tk_widget().pack(pady=5)
+
+        except Exception as e:
+            self.status_label.config(text=f"Test failed: {e}", fg="red")
+
     def save_response(self):
-        responses = []
-        for row in self.entries:
-            entry_data = {
-                "chemical": row["chemical"].get().strip(),
-                "concentration": row["concentration"].get().strip(),
-                "volume": row["volume"].get().strip(),
-                "samples": row["samples"].get().strip(),
-                "justification": row["justification"].get("1.0", tk.END).strip()
-            }
-            responses.append(entry_data)
-        self.controller.responses["electrolyte_orders"] = responses
+        observation = self.observation_box.get("1.0", tk.END).strip()
+        self.controller.responses["demo_observation"] = observation
 
 class RunTestPage(Page):
     def __init__(self, parent, controller):
@@ -161,6 +206,30 @@ class RunTestPage(Page):
         )
         tk.Label(scrollable_frame, text=info_text, justify="left", wraplength=560).pack(fill="x", expand=True, pady=10)
 
+        setup_frame = tk.LabelFrame(scrollable_frame, text="🛠 Beaker Cell Setup Instructions", padx=10, pady=5)
+        setup_frame.pack(fill="x", expand=True, pady=10)
+
+        setup_steps = (
+            "1. Rinse all electrodes thoroughly with deionized (DI) water.\n"
+            "2. Empty the beaker back into an electrolyte holding vial."
+            "3. Rinse the beaker thoroughly with deionized (DI) water."
+            "4. Wipe dry or allow beaker and electrodes to air dry before reuse.\n"
+            "5. Add 20 mL of your chosen zinc-based electrolyte into a clean 50 mL beaker.\n"
+            "6. Insert the three electrodes into the solution:\n"
+            "   • Working electrode (black circular) can touch the bottom.\n"
+            "   • Counter and reference electrodes should be suspended and not touching each other.\n"
+            "   • Try to position working and counter electrodes on either side of the reference electrode.\n"
+            "7. Secure electrodes using a ring stand or holder.\n"
+            "8. Connect the potentiostat wires:\n"
+            "   • Red → Working\n"
+            "   • Yellow → Counter\n"
+            "   • Green → Reference\n"
+            "9. Double-check that electrodes are not touching and are submerged properly.\n"
+            "10. You're ready to run your test!"
+        )
+
+        tk.Label(setup_frame, text=setup_steps, justify="left", anchor="w", wraplength=550).pack()
+
         self.test_canvases = [None, None, None]
         self.annotation_boxes = []
 
@@ -174,7 +243,7 @@ class RunTestPage(Page):
             setattr(self, f"status_label_{i}", tk.Label(scrollable_frame, text="", font=("Helvetica", 12), fg="green"))
             getattr(self, f"status_label_{i}").pack(fill="x", expand=True, pady=2)
 
-            annotation_label = tk.Label(scrollable_frame, text="📝 Annotate this graph:\nWhat do you observe in this run?", justify="left", wraplength=560)
+            annotation_label = tk.Label(scrollable_frame, text="📝 Annotate this graph:\nWhat did you observe in this run?", justify="left", wraplength=560)
             annotation_label.pack(fill="x", expand=True, pady=(10, 2))
 
             annotation_box = tk.Text(scrollable_frame, height=5, width=70)
@@ -278,25 +347,19 @@ class ExplainPage(Page):
         )
         tk.Label(self, text=intro_text, justify="left", wraplength=560).pack(pady=10)
 
-        tk.Label(self, text="🧪 What scientific vocabulary describes what you’ve seen?", anchor="w").pack(anchor="w", padx=15)
+        tk.Label(self, text="🧪 Recalling what you observed during the initial demonstration and your own measurements, attempt to describe your observations again using at least three of the academic vocabulary listed in this lesson.", anchor="w").pack(anchor="w", padx=15)
         self.vocab_response = tk.Text(self, height=4, width=70)
         self.vocab_response.pack(pady=5)
-
-        tk.Label(self, text="🔋 How does understanding electrolytes help improve batteries?", anchor="w").pack(anchor="w", padx=15)
-        self.electrolyte_response = tk.Text(self, height=4, width=70)
-        self.electrolyte_response.pack(pady=5)
 
         back_btn = tk.Button(self, text="← Back", command=lambda: controller.show_page("RunTestPage"))
         back_btn.pack(pady=5)
 
-        next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("CERPage")])
+        next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("AnalyzePage")])
         next_btn.pack(pady=15)
 
     def save_response(self):
         vocab = self.vocab_response.get("1.0", tk.END).strip()
-        electrolyte = self.electrolyte_response.get("1.0", tk.END).strip()
         self.controller.responses["vocab_terms"] = vocab
-        self.controller.responses["electrolyte_insight"] = electrolyte
 
 class CERPage(Page):
     def __init__(self, parent, controller):
@@ -316,10 +379,10 @@ class CERPage(Page):
         self.cer_response = tk.Text(self, height=10, width=70)
         self.cer_response.pack(pady=10)
 
-        back_btn = tk.Button(self, text="← Back", command=lambda: controller.show_page("ExplainPage"))
+        back_btn = tk.Button(self, text="← Back", command=lambda: controller.show_page("AnalyzePage"))
         back_btn.pack(pady=5)
 
-        next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("AnalyzePage")])
+        next_btn = tk.Button(self, text="Next →", command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("ConclusionPage")])
         next_btn.pack(pady=15)
 
     def save_response(self):
@@ -397,13 +460,13 @@ class AnalyzePage(Page):
 
             self.canvases.append(None)
 
-        back_btn = tk.Button(scrollable_frame, text="← Back", command=lambda: controller.show_page("CERPage"))
+        back_btn = tk.Button(scrollable_frame, text="← Back", command=lambda: controller.show_page("ExplainPage"))
         back_btn.pack(pady=5)
 
         next_btn = tk.Button(
             scrollable_frame,
             text="Next →",
-            command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("ConclusionPage")]
+            command=lambda: [self.save_response(), controller.save_responses(), controller.show_page("CERPage")]
         )
         next_btn.pack(pady=10)
 

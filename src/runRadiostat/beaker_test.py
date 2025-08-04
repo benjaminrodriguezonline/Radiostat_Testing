@@ -5,7 +5,7 @@ from potentiostat import Potentiostat
 import matplotlib.pyplot as plt
 
 def run_beaker_test():
-    port = '/dev/tty.usbmodem1201'       # Serial port for potentiostat device
+    port = '/dev/tty.usbmodem1101'       # Serial port for potentiostat device
     datafile = 'data.txt'       # Output file for time, curr, volt data
 
     test_name = 'cyclic'        # The name of the test to run
